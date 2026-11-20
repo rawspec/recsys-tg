@@ -1,26 +1,67 @@
-# 🎬 Movie Recommendation Telegram Bot (RecSys / ALS)
+# 🎬 Movie Recommendation Telegram Bot (ALS)
 
-Pet-проект рекомендательной системы фильмов на основе матричной факторизации (ALS) с инференсом в Telegram-боте.
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![implicit](https://img.shields.io/badge/implicit-ALS-0A66C2)](https://benfred.github.io/implicit/)
+[![aiogram](https://img.shields.io/badge/aiogram-3.x-2CA5E0?logo=telegram&logoColor=white)](https://docs.aiogram.dev/)
 
-## 📌 Описание проекта
-Сервис выдает персонализированные рекомендации фильмов на основе истории взаимодействий пользователей с использованием подхода коллаборативной фильтрации. Модель обучается на бенчмарк-датасете **MovieLens 100k** и рассчитывает топ-N рекомендаций для заданного пользователя, исключая уже просмотренные тайтлы.
+Pet-проект рекомендательной системы фильмов: коллаборативная фильтрация на матричной факторизации (ALS) с продовым инференсом через Telegram-бота.
 
-## 🛠 Стек технологий
-* **Python 3.10+**
-* **ML / RecSys:** `implicit` (Alternating Least Squares), `scipy`, `pandas`
-* **Bot Engine:** `aiogram 3.x`, `asyncio`
+## 📌 Описание
 
-## 🧠 Архитектура и ML-пайплайн
-1. **Данные:** Матрица взаимодействий User-Item на базе MovieLens 100k (943 пользователя, 1682 фильма).
-2. **Алгоритм:** Модель неявного фидбека **iALS** (`AlternatingLeastSquares` с 32 скрытыми факторами). Модель факторизует разреженную матрицу $R \approx U \cdot V^T$, вычисляя низкоранговые эмбеддинги пользователей и объектов.
-3. **Инференс:** При запросе вычисляется векторное произведение эмбеддинга пользователя с матрицей скрытых представлений фильмов, фильтруются просмотренные тайтлы и отдается Top-5 рекоммендаций.
+Сервис выдаёт персональные рекомендации фильмов на основе истории взаимодействий пользователей. Модель обучается на бенчмарке **MovieLens 100k** и считает топ-N рекомендаций для пользователя, исключая уже просмотренные тайтлы.
+
+## 🛠 Стек
+
+- **Python 3.10+**
+- **ML / RecSys:** `implicit` (ALS), `scipy.sparse`, `pandas`
+- **Бот:** `aiogram 3.x`, `asyncio`
+
+## 🧠 Как это работает
+
+1. **Данные:** разреженная матрица User-Item по MovieLens 100k (943 пользователя, 1682 фильма, 100k оценок)
+2. **Алгоритм:** iALS — `AlternatingLeastSquares` (32 скрытых фактора, 15 итераций, регуляризация 0.1). Матрица оценок масштабируется ×10 как уровень уверенности для неявного фидбека. Модель факторизует $R \approx U \cdot V^T$ — низкоранговые эмбеддинги пользователей и фильмов
+3. **Инференс:** скалярное произведение эмбеддинга пользователя с матрицей фильмов → фильтр просмотренного → топ-5
 
 ## 🚀 Быстрый старт
 
-### 1. Клонирование и установка зависимостей
 ```bash
-git clone https://github.com/recsys-tg-bot/recsys-tg-bot.git
-cd recsys-tg-bot
+git clone https://github.com/rawspec/recsys-tg.git
+cd recsys-tg
+
 python -m venv venv
-source venv/bin/activate  # На Windows: venv\Scripts\activate
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
+```
+
+**1. Обучение модели** (скрипт сам скачает MovieLens 100k и сохранит артефакты в `model_data.pkl`):
+
+```bash
+python train.py
+```
+
+**2. Запуск бота** — задай токен от [@BotFather](https://t.me/BotFather):
+
+```bash
+export BOT_TOKEN="ваш_токен"    # Windows: set BOT_TOKEN=ваш_токен
+python bot.py
+```
+
+**3. Пользование:** отправь боту ID пользователя от 1 до 943 — получишь топ-5 персональных рекомендаций.
+
+## 📁 Структура проекта
+
+```
+recsys-tg/
+├── train.py         # скачивание MovieLens, обучение ALS, сохранение артефактов
+├── bot.py           # Telegram-бот (aiogram 3.x)
+├── model_data.pkl   # обученная модель + маппинги (артефакты train.py)
+├── requirements.txt
+└── README.md
+```
+
+## ⚠️ Ограничения и roadmap
+
+- Бот работает только с пользователями обучающей выборки (ID 1–943) — **cold start** нового пользователя не обрабатывается
+- Нет офлайн-оценки качества (hold-out метрики: Precision@K, MAP@K) — стоит добавить
+- Одна глобальная модель, нет онлайн-обучения по реакциям
+- Идеи на будущее: content-based фолбэк для холодных пользователей, переключение на нейросетевые эмбеддинги (Two-Tower), деплой через Docker, сбор фидбека из самого бота
